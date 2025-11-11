@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>디지털 서바이벌 챌린지</title>
+    <!-- Tailwind CSS 로드 --><script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter 폰트 로드 --><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- html2canvas 라이브러리 로드 (HTML 요소를 이미지로 변환하기 위해 사용) --><script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        /* Noto Sans KR 폰트를 기본으로 사용하되, Inter 폰트도 fallback으로 지정 */
+        body {
+            font-family: 'Noto Sans KR', 'Inter', sans-serif;
+        }
+        /* 버튼 클릭 시 미세한 효과 */
+        .btn-choice {
+            transition: all 0.1s ease-in-out;
+        }
+        .btn-choice:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+        /* 시나리오 텍스트가 자연스럽게 나타나도록 */
+        .scenario-fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 배지 애니메이션 */
+        @keyframes bounceIn {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-30px); }
+            60% { transform: translateY(-15px); }
+        }
+
+        .badge-animation {
+            animation: bounceIn 1s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
+
+    <div id="game-container" class="w-full max-w-md bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+        
+        <!-- 1. 초기 진입 화면 (Splash Screen) --><div id="splash-screen" class="p-8 text-center flex flex-col items-center justify-center min-h-[500px] bg-gray-900">
+            <h2 class="text-4xl font-extrabold text-indigo-400 mb-4">디지털 서바이벌 챌린지</h2>
+            <p class="text-xl text-gray-300 mb-10">디지털 세상 속에서 안전하게 살아남으세요!</p>
+            <button id="start-game-button" class="w-2/3 bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-6 rounded-xl text-lg transition duration-150 transform hover:scale-105 btn-choice shadow-lg">
+                게임 시작하기
+            </button>
+        </div>
+
+        <!-- 헤더: 타이틀, 진행 상황 및 점수 --><header id="game-header" class="p-4 bg-gray-700 border-b border-gray-600 flex justify-between items-center hidden">
+            <!-- 진행 상황 표시기 --><div id="progress-indicator" class="text-sm font-semibold text-gray-400 pt-3">문제 1/8</div> 
+            <div class="text-right">
+                <span class="text-xs text-gray-400 block">안전 점수</span>
+                <div class="flex items-center justify-end">
+                    <span id="score" class="text-2xl font-bold text-green-400">100</span>
+                    <!-- 점수 변화 효과 표시기 --><span id="score-change-effect" class="text-lg font-extrabold ml-2 opacity-0 transition-opacity duration-300 ease-in-out"></span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 게임 화면 (초기에는 숨김) --><main id="scenario-container" class="p-6 min-h-[350px] flex flex-col justify-between scenario-fade-in hidden">
+            <!-- 시나리오 내용 --><div>
+                <div id="scenario-icon" class="text-4xl mb-4"></div>
+                <p id="scenario-text" class="text-lg text-gray-200 leading-relaxed mb-6"></p>
+            </div>
+            
+            <!-- 선택지 버튼 --><div id="options-container" class="space-y-3">
+                <!-- JS로 동적 생성 --></div>
+        </main>
+
+        <!-- 피드백 화면 (초기에는 숨김) --><footer id="feedback-container" class="p-6 bg-gray-800 border-t border-gray-600 hidden">
+            <p id="feedback-text" class="text-base mb-4"></p>
+            <button id="next-button" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg btn-choice">
+                다음으로
+            </button>
+        </footer>
+
+        <!-- 게임 종료 화면 (초기에는 숨김) --><div id="end-game-container" class="p-8 text-center hidden">
+            <h2 id="end-game-title" class="text-3xl font-bold mb-4"></h2>
+            
+            <!-- 배지 표시 영역 (다운로드 대상이 되는 영역) --><div id="badge-display" class="my-6 p-2 rounded-xl bg-gray-700 shadow-xl border-2 border-indigo-500">
+                <!-- 다운로드 시 흰색 배경을 갖도록 내부 div 추가 --><div id="badge-export-area" class="p-6 rounded-lg bg-white text-gray-800">
+                    <!-- 배지 내용이 여기에 삽입됩니다. (JS로 채워짐) --></div>
+            </div>
+
+            <p id="end-game-message" class="text-lg text-gray-300 mb-6"></p>
+
+            <!-- 배지 다운로드 버튼 --><button id="download-badge-button" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition duration-150 transform hover:scale-105 btn-choice mb-4">
+                🏆 배지 다운로드 (PNG)
+            </button>
+            
+            <!-- 다시 시작 버튼 --><button id="restart-button" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition duration-150 transform hover:scale-105 btn-choice">
+                다시 도전하기
+            </button>
+        </div>
+
+        <!-- 저작권 표시 (Copyright Notice) --><footer class="text-xs text-gray-500 text-center p-3 border-t border-gray-700">
+            &copy; 2025 peace_shiny. All rights reserved.
+        </footer>
+
+    </div>
+
+    <script>
+        // --- 설정 및 DOM 요소 ---
+        const STARTING_SCORE = 100; // 💡 시작 점수입니다.
+        
+        // DOM 요소 가져오기
+        const splashScreen = document.getElementById('splash-screen');
+        const startGameButton = document.getElementById('start-game-button');
+        const gameHeader = document.getElementById('game-header');
+        
+        const scoreElement = document.getElementById('score');
+        const progressIndicator = document.getElementById('progress-indicator');
+        const scoreChangeEffect = document.getElementById('score-change-effect');
+
+        const scenarioContainer = document.getElementById('scenario-container');
+        const scenarioIcon = document.getElementById('scenario-icon');
+        const scenarioText = document.getElementById('scenario-text');
+        const optionsContainer = document.getElementById('options-container');
+        const feedbackContainer = document.getElementById('feedback-container');
+        const feedbackText = document.getElementById('feedback-text');
+        const nextButton = document.getElementById('next-button');
+        const endGameContainer = document.getElementById('end-game-container');
+        const endGameTitle = document.getElementById('end-game-title');
+        const endGameMessage = document.getElementById('end-game-message');
+        const badgeDisplay = document.getElementById('badge-display');
+        const badgeExportArea = document.getElementById('badge-export-area');
+        const downloadBadgeButton = document.getElementById('download-badge-button');
+        const restartButton = document.getElementById('restart-button');
+
+        let currentScore = STARTING_SCORE;
+        let currentScenarioId = 1;
+
+        // 시나리오 데이터 (이전과 동일)
+        const scenarios = {
+            1: {
+                icon: '🤔',
+                text: "새로운 소셜 미디어 '인싸그램'에 가입하려고 한다. 프로필을 어떻게 만들까?",
+                options: [
+                    { text: "실명, 학교, 얼굴 사진까지 완벽 공개!", consequence: "안 돼! 모르는 사람에게 내 개인정보가 다 노출돼. 범죄에 이용될 수 있어!", scoreChange: -20, nextId: 2 },
+                    { text: "별명과 좋아하는 캐릭터 아바타로 설정한다.", consequence: "좋은 선택이야! 온라인에선 나를 특정할 수 있는 정보는 최소한만 공개하는 게 안전해.", scoreChange: +10, nextId: 2 }
+                ]
+            },
+            2: {
+                icon: '🎮',
+                text: "게임을 하는데 모르는 유저에게서 DM이 왔다. '[긴급] OO게임 희귀 스킨 무료 증정! 아래 링크 클릭!'",
+                options: [
+                    { text: "이건 못 참지! 당장 클릭해서 스킨 받는다.", consequence: "클릭하는 순간... 내 계정은 해킹당했다! 비밀번호와 아이템이 모두 털렸다. 이건 피싱 링크였어.", scoreChange: -30, nextId: 3 },
+                    { text: "세상에 공짜는 없다. 의심스러운 링크는 절대 클릭하지 않고 신고/차단한다.", consequence: "현명한 판단! 피싱 사기를 피했다. 내 정보는 소중하니까.", scoreChange: +10, nextId: 3 }
+                ]
+            },
+            3: {
+                icon: '🎬',
+                text: "단톡방에 '우리반 담임쌤이 교실에서 춤추는' 영상이 올라왔다. 엄청 웃긴데... 왠지 얼굴이랑 목소리가 따로 노는 것 같다.",
+                options: [
+                    { text: "ㅋㅋㅋ 대박! 다른 반 친구들에게도 마구 공유한다.", consequence: "이건 '딥페이크' 영상이었다. 선생님의 명예를 훼손하는 2차 가해에 동참한 셈이야. 디지털 성범죄가 될 수 있어!", scoreChange: -30, nextId: 4 },
+                    { text: "이거 딥페이크 같은데? 원본 영상인지 확인하고, 친구들에게도 퍼뜨리지 말라고 말한다.", consequence: "훌륭한 디지털 시민! 딥페이크를 식별하고 무분별한 확산을 막았다.", scoreChange: +15, nextId: 4 }
+                ]
+            },
+            4: {
+                icon: '📱',
+                text: "친구가 내 폰을 잠깐 빌려가더니 '재미있는 테스트'라며 앱을 하나 깔아줬다. 그런데 앱이 '전화번호부 접근'과 '위치 정보'를 요구한다.",
+                options: [
+                    { text: "친구가 추천한 건데 뭐. '모두 허용' 누른다.", consequence: "위험해! 이 앱이 내 모든 연락처와 이동 경로를 수집해 광고 회사에 팔아넘길 수도 있어. 필요한 권한만 허용해야 해.", scoreChange: -20, nextId: 5 },
+                    { text: "테스트 앱이 왜 내 주소록이 필요하지? 권한을 거부하고 앱을 삭제한다.", consequence: "정확해! 앱이 요구하는 권한이 기능과 무관하다면 의심해야 해. 내 정보 지킴이!", scoreChange: +10, nextId: 5 }
+                ]
+            },
+            5: {
+                icon: '💬',
+                text: "인기 유튜버 라이브 방송. 채팅창에서 몇몇 사람들이 한 명을 지목하며 외모를 비하하고 '나가 죽어라' 등의 악플을 달고 있다.",
+                options: [
+                    { text: "재밌는데? 나도 한마디 거든다. (악플 동참)", consequence: "사이버불링(언어폭력)은 명백한 범죄다. 익명성에 숨어 남을 공격하는 것은 비겁한 행동이야.", scoreChange: -30, nextId: 6 }, 
+                    { text: "못 본 척 무시한다.", consequence: "방관도 폭력에 힘을 실어줄 수 있어. 조금 더 용기를 내보자.", scoreChange: -5, nextId: 6 }, 
+                    { text: "채팅을 캡처해서 신고하고, 피해자를 응원하는 메시지를 보낸다.", consequence: "정의로운 행동! 사이버불링을 멈추는 '선한 영향력'을 보여줬다. 당신이 진정한 디지털 시민!", scoreChange: +20, nextId: 6 } 
+                ]
+            },
+            6: {
+                icon: '🔑',
+                text: "자주 쓰는 비밀번호가 해킹당했다는 문자를 받았다. 혹시 몰라 확인해보니, 내가 사용하는 비밀번호 패턴이 유출 목록에 포함되어 있다.",
+                options: [
+                    { text: "어차피 해킹된 김에... 모든 사이트의 비밀번호를 똑같이 유지한다.", consequence: "매우 위험한 생각! 한 사이트가 뚫리면 모든 개인 정보가 유출될 수 있어. 비밀번호는 사이트별로 다르게 설정해야 해.", scoreChange: -25, nextId: 7 },
+                    { text: "당장 모든 중요한 사이트의 비밀번호를 바꾸고, 사이트마다 다른 비밀번호를 사용한다.", consequence: "완벽한 대응! 귀찮더라도 여러 사이트에 다른 비밀번호를 설정하는 것은 디지털 안전의 기본이야.", scoreChange: +15, nextId: 7 }
+                ]
+            },
+            7: {
+                icon: '📰',
+                text: "친한 친구가 톡으로 '이번 선거에서 OOOO하면 절대 안 되는 이유'라는 자극적인 제목의 유튜브 쇼츠를 보냈다. 내용이 너무 충격적이다.",
+                options: [
+                    { text: "너무 충격적이라 친구 말만 믿고 내용을 바로 공유한다.", consequence: "잠깐! 자극적인 정보일수록 가짜뉴스일 가능성이 높아. 내용을 공유하기 전에 사실 관계를 확인하지 않으면 나도 가짜뉴스 유포자가 돼.", scoreChange: -15, nextId: 8 },
+                    { text: "댓글 창부터 확인하고, 다른 뉴스 매체나 공식 기관에서 사실을 확인해 본다.", consequence: "훌륭한 정보 분별력! 미디어를 무비판적으로 수용하지 않고 사실 여부를 확인하려는 태도가 중요해.", scoreChange: +10, nextId: 8 }
+                ]
+            },
+            8: {
+                icon: '😴',
+                text: "밤늦게까지 핸드폰을 보다가 다음날 수업 시간에 졸고 있다. 선생님이 '디지털 기기 사용 시간을 조절해야 한다'고 충고하셨다.",
+                options: [
+                    { text: "내 마음대로 할 거야'라며 오히려 밤샘 게임을 더 한다.", consequence: "디지털 기기 중독은 신체 건강뿐만 아니라 집중력까지 해칠 수 있어. 건강한 생활 습관이 필요해.", scoreChange: -10, nextId: 'end' },
+                    { text: "휴대폰 앱의 수면 모드를 설정하고, 잠들기 한 시간 전에는 기기를 멀리 둔다.", consequence: "현명한 자기 통제! 디지털 디톡스를 통해 숙면을 취하고 다음날 활기찬 생활을 할 수 있게 되었어.", scoreChange: +10, nextId: 'end' }
+                ]
+            }
+        };
+
+        // 배지 데이터 (이미지 URL을 원본 콘텐츠(raw.githubusercontent.com) URL로 변경)
+        const badges = {
+            MASTER: {
+                imageUrl: 'https://raw.githubusercontent.com/shinyrumi/students_digital/615cb7148cf5b589941504899fb6e95ad45d657b/%EC%99%95.png',
+                name: '디지털 생존왕',
+                description: '최고의 점수! 모든 디지털 위협으로부터 자신을 완벽하게 보호할 수 있는 능력을 증명했습니다.',
+                color: 'text-yellow-600'
+            },
+            EXCELLENT: {
+                imageUrl: 'https://raw.githubusercontent.com/shinyrumi/students_digital/615cb7148cf5b589941504899fb6e95ad45d657b/%EB%B3%B4%EC%95%88%EA%B4%80.png',
+                name: '디지털 보안관',
+                description: '매우 훌륭한 점수! 대부분의 위험을 피했지만, 몇 가지 아쉬운 선택이 있었습니다. 다음엔 만점을 노려보세요!',
+                color: 'text-indigo-600'
+            },
+            DANGER: {
+                imageUrl: 'https://raw.githubusercontent.com/shinyrumi/students_digital/615cb7148cf5b589941504899fb6e95ad45d657b/%EB%B3%91%EC%95%84%EB%A6%AC.png',
+                name: '디지털 새싹',
+                description: '아직은 위험에 노출되기 쉽습니다. 하지만 괜찮습니다! 이 경험으로 무엇을 조심해야 할지 배웠습니다.',
+                color: 'text-red-600'
+            }
+        };
+
+        // 스플래시 화면 표시
+        function showSplashScreen() {
+            splashScreen.classList.remove('hidden');
+            gameHeader.classList.add('hidden');
+            scenarioContainer.classList.add('hidden');
+            feedbackContainer.classList.add('hidden');
+            endGameContainer.classList.add('hidden');
+            downloadBadgeButton.onclick = downloadBadge; 
+        }
+
+        // 게임 시작 함수
+        function startGame() {
+            splashScreen.classList.add('hidden');
+            gameHeader.classList.remove('hidden');
+
+            currentScore = STARTING_SCORE;
+            currentScenarioId = 1;
+            scoreElement.textContent = currentScore;
+            
+            scenarioContainer.classList.remove('hidden');
+            scenarioContainer.style.display = 'flex';
+            
+            feedbackContainer.classList.add('hidden');
+            endGameContainer.classList.add('hidden');
+            
+            scoreElement.classList.remove('text-red-400', 'text-yellow-400');
+            scoreElement.classList.add('text-green-400');
+
+            showScenario(currentScenarioId);
+        }
+
+        // 시나리오 표시 함수 (이전과 동일)
+        function showScenario(id) {
+            const scenario = scenarios[id];
+            
+            if (!scenario) {
+                showEndGame();
+                return;
+            }
+
+            // 진행 상황 업데이트
+            const totalScenarios = Object.keys(scenarios).length;
+            progressIndicator.textContent = `문제 ${id}/${totalScenarios}`;
+            
+            scenarioContainer.classList.remove('scenario-fade-in');
+            void scenarioContainer.offsetWidth; 
+            scenarioContainer.classList.add('scenario-fade-in');
+
+            scenarioIcon.textContent = scenario.icon;
+            scenarioText.textContent = scenario.text;
+
+            optionsContainer.innerHTML = '';
+
+            scenario.options.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.textContent = option.text;
+                button.className = 'w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg btn-choice';
+                
+                if (index === 1) {
+                    button.classList.replace('bg-indigo-600', 'bg-gray-600');
+                    button.classList.replace('hover:bg-indigo-700', 'hover:bg-gray-500');
+                }
+                if (index === 2) {
+                    button.classList.replace('bg-indigo-600', 'bg-teal-600');
+                    button.classList.replace('hover:bg-indigo-700', 'hover:bg-teal-500');
+                }
+
+                button.onclick = () => selectOption(option);
+                optionsContainer.appendChild(button);
+            });
+
+            scenarioContainer.classList.remove('hidden');
+            scenarioContainer.style.display = 'flex'; 
+            feedbackContainer.classList.add('hidden');
+            endGameContainer.classList.add('hidden');
+        }
+
+        // 선택지 선택 함수 (이전과 동일)
+        function selectOption(option) {
+            scoreChangeEffect.textContent = (option.scoreChange > 0 ? '+' : '') + option.scoreChange;
+            scoreChangeEffect.classList.remove('text-green-400', 'text-red-400', 'opacity-0');
+            scoreChangeEffect.classList.add(option.scoreChange > 0 ? 'text-green-400' : 'text-red-400', 'opacity-100');
+            
+            setTimeout(() => {
+                scoreChangeEffect.classList.remove('opacity-100');
+                scoreChangeEffect.classList.add('opacity-0');
+            }, 500);
+
+            currentScore += option.scoreChange;
+            scoreElement.textContent = currentScore;
+
+            if (currentScore <= 70) {
+                scoreElement.classList.remove('text-green-400', 'text-yellow-400');
+                scoreElement.classList.add('text-red-400');
+            } else if (currentScore <= 90) {
+                scoreElement.classList.remove('text-green-400', 'text-red-400');
+                scoreElement.classList.add('text-yellow-400');
+            } else {
+                scoreElement.classList.remove('text-yellow-400', 'text-red-400');
+                scoreElement.classList.add('text-green-400');
+            }
+
+            feedbackText.textContent = option.consequence;
+            if (option.scoreChange > 0) {
+                feedbackText.classList.add('text-green-400');
+                feedbackText.classList.remove('text-red-400');
+            } else {
+                feedbackText.classList.add('text-red-400');
+                feedbackText.classList.remove('text-green-400');
+            }
+
+            currentScenarioId = option.nextId;
+
+            scenarioContainer.classList.add('hidden');
+            feedbackContainer.classList.remove('hidden');
+
+            if (currentScenarioId === 'end') {
+                nextButton.textContent = '결과 확인하기';
+                nextButton.onclick = showEndGame;
+            } else {
+                nextButton.textContent = '다음으로';
+                nextButton.onclick = () => showScenario(currentScenarioId);
+            }
+        }
+
+        // 게임 종료 화면 표시 (배지 기능 추가)
+        function showEndGame() {
+            gameHeader.classList.add('hidden');
+            feedbackContainer.classList.add('hidden');
+            endGameContainer.classList.remove('hidden');
+            
+            const masterThreshold = STARTING_SCORE + 50;
+            const lowThreshold = STARTING_SCORE - 20;
+
+            let resultBadge;
+            let resultText;
+
+            if (currentScore >= masterThreshold) {
+                resultBadge = badges.MASTER;
+                endGameTitle.textContent = '🏆 디지털 마스터 🏆';
+                endGameTitle.classList.remove('text-yellow-400', 'text-red-400');
+                endGameTitle.classList.add('text-green-400');
+                resultText = `당신의 디지털 안전 점수: ${currentScore}점. 완벽해요! 당신은 딥페이크도 가려내고 개인정보도 지킬 줄 아는 진정한 디지털 시민입니다!`;
+            } else if (currentScore > lowThreshold) {
+                resultBadge = badges.EXCELLENT;
+                endGameTitle.textContent = '👍 디지털 우등생 👍';
+                endGameTitle.classList.remove('text-green-400', 'text-red-400');
+                endGameTitle.classList.add('text-yellow-400');
+                resultText = `당신의 디지털 안전 점수: ${currentScore}점. 훌륭해요! 몇 가지만 더 조심하면 완벽하겠어요. 디지털 세상의 위험을 잘 알고 있네요!`;
+            } else {
+                resultBadge = badges.DANGER;
+                endGameTitle.textContent = '🚨 디지털 위험! 🚨';
+                endGameTitle.classList.remove('text-green-400', 'text-yellow-400');
+                endGameTitle.classList.add('text-red-400');
+                resultText = `당신의 디지털 안전 점수: ${currentScore}점. 위험해요! 하지만 괜찮습니다. 이번 게임을 통해 무엇을 조심해야 할지 배웠으니, 다음엔 더 잘할 수 있을 거예요!`;
+            }
+
+            endGameMessage.textContent = resultText;
+            
+            // --- 배지 표시 로직 (badge-export-area에 삽입) ---
+            badgeExportArea.innerHTML = `
+                <div class="text-center">
+                    <img src="${resultBadge.imageUrl}" alt="${resultBadge.name} 배지" class="w-24 h-24 mx-auto mb-2 object-contain badge-animation">
+                    <h3 class="text-2xl font-extrabold mb-1 ${resultBadge.color}">${resultBadge.name}</h3>
+                    <p class="text-sm text-gray-600 mt-2">${resultBadge.description}</p>
+                </div>
+            `;
+        }
+
+        /**
+         * HTML2Canvas를 사용하여 배지 표시 영역을 PNG 이미지로 변환하여 다운로드합니다.
+         */
+        function downloadBadge() {
+            downloadBadgeButton.textContent = '... 이미지 생성 중 ...';
+            downloadBadgeButton.disabled = true;
+
+            const element = document.getElementById('badge-export-area'); 
+
+            html2canvas(element, { 
+                scale: 3, 
+                useCORS: true, // 외부 이미지 로드를 위해 CORS 사용
+                backgroundColor: '#ffffff' 
+            }).then(canvas => {
+                const imageURL = canvas.toDataURL('image/png');
+
+                const link = document.createElement('a');
+                link.href = imageURL;
+                link.download = `디지털_생존_배지_${currentScore}점.png`;
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                downloadBadgeButton.textContent = '🏆 배지 다운로드 (PNG)';
+                downloadBadgeButton.disabled = false;
+            }).catch(error => {
+                console.error("배지 이미지 생성 실패:", error);
+                // raw.githubusercontent.com 링크를 사용했으므로 에러 발생 가능성이 낮아졌지만, 만약을 대비하여 사용자에게 알림
+                alert("배지 이미지 생성에 실패했습니다. CORS 문제 해결을 위해 이미지 URL을 수정했지만, 여전히 문제가 발생하면 GitHub 저장소의 설정(퍼미션)을 확인해 주세요."); 
+                downloadBadgeButton.textContent = '다운로드 실패';
+                downloadBadgeButton.disabled = false;
+            });
+        }
+
+        // 이벤트 리스너 설정
+        restartButton.onclick = startGame;
+        startGameButton.onclick = startGame;
+        downloadBadgeButton.onclick = downloadBadge;
+
+        // 초기 화면 표시 (게임 시작 대신 스플래시 화면을 먼저 보여줌)
+        window.onload = showSplashScreen;
+
+    </script>
+</body>
+</html>
